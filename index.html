@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PerspectiveAI - Bias Detection & Mitigation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            display: none;
+            margin-top: 30px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid #667eea;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .result-header h3 {
+            color: #2d3748;
+            margin-left: 10px;
+            font-size: 1.3rem;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            font-size: 20px;
+        }
+
+        .bias-indicator {
+            display: inline-block;
+            background: #fed7d7;
+            color: #c53030;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin: 2px;
+            font-weight: 500;
+        }
+
+        .bias-indicator.gender { background: #fbb6ce; color: #b83280; }
+        .bias-indicator.race { background: #fbd38d; color: #c05621; }
+        .bias-indicator.age { background: #bee3f8; color: #2b6cb0; }
+        .bias-indicator.religion { background: #c6f6d5; color: #276749; }
+
+        .sentiment-bar {
+            height: 8px;
+            border-radius: 4px;
+            margin: 5px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sentiment-bar.positive { background: linear-gradient(90deg, #48bb78, #68d391); }
+        .sentiment-bar.negative { background: linear-gradient(90deg, #f56565, #fc8181); }
+        .sentiment-bar.neutral { background: linear-gradient(90deg, #a0aec0, #cbd5e0); }
+
+        .suggestion-item {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+
+        .suggestion-item .original {
+            text-decoration: line-through;
+            color: #e53e3e;
+            font-weight: 500;
+        }
+
+        .suggestion-item .suggested {
+            color: #38a169;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sample-texts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .sample-text {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sample-text:hover {
+            border-color: #667eea;
+            background: #edf2f7;
+        }
+
+        .sample-text h4 {
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .sample-text p {
+            color: #4a5568;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 PerspectiveAI</h1>
+            <p>Advanced Bias Detection & Mitigation System</p>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <label for="textInput">Enter text to analyze for bias:</label>
+                <textarea id="textInput" placeholder="Paste your text here (news articles, policy documents, research papers, etc.)..."></textarea>
+            </div>
+
+            <button class="btn" onclick="analyzeText()" id="analyzeBtn">
+                🚀 Analyze for Bias
+            </button>
+
+            <div style="margin-top: 20px;">
+                <h3 style="color: #2d3748; margin-bottom: 15px;">📝 Try Sample Texts:</h3>
+                <div class="sample-texts">
+                    <div class="sample-text" onclick="loadSampleText(0)">
+                        <h4>🏥 Healthcare Bias</h4>
+                        <p>"The nurse was very caring, as women typically are in healthcare roles."</p>
+                    </div>
+                    <div class="sample-text" onclick="loadSampleText(1)">
+                        <h4>🗣️ Coded Language</h4>
+                        <p>"He's surprisingly articulate for someone from that neighborhood."</p>
+                    </div>
+                    <div class="sample-text" onclick="loadSampleText(2)">
+                        <h4>👔 Leadership Bias</h4>
+                        <p>"She's probably too emotional to handle the pressure of this executive position."</p>
+                    </div>
+                    <div class="sample-text" onclick="loadSampleText(3)">
+                        <h4>💻 Age Bias</h4>
+                        <p>"The young programmer was innovative, unlike the older employees who resist change."</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="results" class="results-section">
+            <!-- Results will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <script>
+        const sampleTexts = [
+            "The nurse was very caring, as women typically are in healthcare roles.",
+            "He's surprisingly articulate for someone from that neighborhood.",
+            "She's probably too emotional to handle the pressure of this executive position.",
+            "The young programmer was innovative, unlike the older employees who resist change."
+        ];
+
+        function loadSampleText(index) {
+            document.getElementById('textInput').value = sampleTexts[index];
+        }
+
+        // Simulated bias detection results for demo
+        const mockResults = {
+            explicit_bias: {
+                gender: [['women', 'explicit'], ['she', 'explicit']],
+                age: [['young', 'explicit'], ['older', 'explicit']]
+            },
+            sentiment_bias: {
+                'women': { mean_sentiment: -0.2, count: 15 },
+                'men': { mean_sentiment: 0.1, count: 12 },
+                'young people': { mean_sentiment: 0.3, count: 8 },
+                'older people': { mean_sentiment: -0.1, count: 10 }
+            },
+            word_associations: {
+                'women': [['caring', 5], ['emotional', 3], ['nurturing', 3]],
+                'men': [['strong', 4], ['leader', 3], ['aggressive', 2]]
+            },
+            mitigation_suggestions: [
+                {
+                    original: "women typically are",
+                    suggestion: "healthcare workers typically are",
+                    context: "Consider using gender-neutral language"
+                },
+                {
+                    original: "She's probably too emotional",
+                    suggestion: "This person may not be suited",
+                    context: "Avoid gendered assumptions about emotional capacity"
+                }
+            ],
+            summary_stats: {
+                total_texts_analyzed: 1,
+                texts_with_explicit_bias: 1,
+                total_bias_indicators_found: 4,
+                bias_types_detected: ['gender', 'age']
+            }
+        };
+
+        function analyzeText() {
+            const text = document.getElementById('textInput').value.trim();
+            const btn = document.getElementById('analyzeBtn');
+            const resultsDiv = document.getElementById('results');
+
+            if (!text) {
+                alert('Please enter some text to analyze!');
+                return;
+            }
+
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Analyzing...';
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing text for bias patterns...</p>
+                </div>
+            `;
+
+            // Simulate processing time
+            setTimeout(() => {
+                displayResults(mockResults, text);
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Analyze for Bias';
+            }, 2000);
+        }
+
+        function displayResults(results, originalText) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="result-card">
+                    <div class="result-header">
+                        <span class="icon">📊</span>
+                        <h3>Analysis Summary</h3>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number">${results.summary_stats.total_bias_indicators_found}</div>
+                            <div class="stat-label">Bias Indicators Found</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${results.summary_stats.bias_types_detected.length}</div>
+                            <div class="stat-label">Bias Types Detected</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${results.mitigation_suggestions.length}</div>
+                            <div class="stat-label">Mitigation Suggestions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${Math.round((results.summary_stats.texts_with_explicit_bias / results.summary_stats.total_texts_analyzed) * 100)}%</div>
+                            <div class="stat-label">Bias Detection Rate</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Explicit Bias Detection
+            if (Object.keys(results.explicit_bias).length > 0) {
+                html += `
+                    <div class="result-card">
+                        <div class="result-header">
+                            <span class="icon">🎯</span>
+                            <h3>Explicit Bias Detected</h3>
+                        </div>
+                `;
+                
+                for (const [biasType, indicators] of Object.entries(results.explicit_bias)) {
+                    html += `<p><strong>${biasType.charAt(0).toUpperCase() + biasType.slice(1)} Bias:</strong> `;
+                    indicators.forEach(([word, category]) => {
+                        html += `<span class="bias-indicator ${biasType}">${word}</span> `;
+                    });
+                    html += `</p>`;
+                }
+                html += `</div>`;
+            }
+
+            // Sentiment Analysis
+            if (Object.keys(results.sentiment_bias).length > 0) {
+                html += `
+                    <div class="result-card">
+                        <div class="result-header">
+                            <span class="icon">💭</span>
+                            <h3>Sentiment Bias Analysis</h3>
+                        </div>
+                `;
+                
+                for (const [group, scores] of Object.entries(results.sentiment_bias)) {
+                    const sentiment = scores.mean_sentiment;
+                    const sentimentType = sentiment > 0.1 ? 'positive' : sentiment < -0.1 ? 'negative' : 'neutral';
+                    const sentimentText = sentiment > 0.1 ? 'Positive' : sentiment < -0.1 ? 'Negative' : 'Neutral';
+                    
+                    html += `
+                        <div style="margin: 15px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong>${group}</strong>
+                                <span>${sentimentText} (${sentiment.toFixed(3)})</span>
+                            </div>
+                            <div class="sentiment-bar ${sentimentType}" style="width: ${Math.min(Math.abs(sentiment) * 100 + 20, 100)}%"></div>
+                            <small>Based on ${scores.count} mentions</small>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+            }
+
+            // Word Associations
+            if (Object.keys(results.word_associations).length > 0) {
+                html += `
+                    <div class="result-card">
+                        <div class="result-header">
+                            <span class="icon">🔗</span>
+                            <h3>Word Association Patterns</h3>
+                        </div>
+                `;
+                
+                for (const [word, associations] of Object.entries(results.word_associations)) {
+                    html += `<p><strong>"${word}"</strong> is commonly associated with: `;
+                    associations.forEach(([assoc, count], index) => {
+                        html += `<em>${assoc}</em> (${count})`;
+                        if (index < associations.length - 1) html += ', ';
+                    });
+                    html += `</p>`;
+                }
+                html += `</div>`;
+            }
+
+            // Mitigation Suggestions
+            if (results.mitigation_suggestions.length > 0) {
+                html += `
+                    <div class="result-card">
+                        <div class="result-header">
+                            <span class="icon">💡</span>
+                            <h3>Bias Mitigation Suggestions</h3>
+                        </div>
+                `;
+                
+                results.mitigation_suggestions.forEach(suggestion => {
+                    html += `
+                        <div class="suggestion-item">
+                            <div><strong>Original:</strong> <span class="original">${suggestion.original}</span></div>
+                            <div><strong>Suggested:</strong> <span class="suggested">${suggestion.suggestion}</span></div>
+                            <div style="font-size: 14px; color: #666; margin-top: 5px;">${suggestion.context}</div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            // Original vs Improved Text
+            const improvedText = originalText
+                .replace(/women typically are/gi, 'healthcare workers typically are')
+                .replace(/She's probably too emotional/gi, 'This person may not be suited');
+
+            html += `
+                <div class="result-card">
+                    <div class="result-header">
+                        <span class="icon">✨</span>
+                        <h3>Text Comparison</h3>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4 style="color: #e53e3e; margin-bottom: 10px;">📝 Original Text</h4>
+                            <div style="background: #fed7d7; padding: 15px; border-radius: 8px; border-left: 4px solid #e53e3e;">
+                                ${originalText}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 style="color: #38a169; margin-bottom: 10px;">✅ Improved Text</h4>
+                            <div style="background: #f0fff4; padding: 15px; border-radius: 8px; border-left: 4px solid #38a169;">
+                                ${improvedText}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
